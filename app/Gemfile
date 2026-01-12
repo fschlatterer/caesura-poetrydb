@@ -1,6 +1,8 @@
-source "https://rubygems.org"
-ruby '>=2.6.0'
-gem 'sinatra', '2.0.5'
-gem 'unicorn'
-gem 'mongo', '2.13.0'
-gem 'json'
+source 'https://rubygems.org'
+
+ruby '>= 2.6.0'
+
+gem 'sinatra', '~> 3.0'         # Upgrade from 2.0.5
+gem 'mongo', '~> 2.13'
+gem 'unicorn', '~> 6.1'
+gem 'rack', '~> 2.2'            # Add explicit rack version
