@@ -7,9 +7,20 @@ include Mongo
 class Web < Sinatra::Base
   configure do
     mongo_uri = ENV['MONGODB_URI']
+    if mongo_uri.nil? || mongo_uri.empty?
+      raise "MONGODB_URI environment variable is not set. Please set it to your MongoDB connection string."
+    end
+
     db_username = ENV['MONGODB_USER']
     db_password = ENV['MONGODB_PASS']
-    db_name = mongo_uri[%r{/([^/\?]+)(\?|$)}, 1]
+
+    # Try to extract database name from URI, or fall back to explicit env var
+    db_name = mongo_uri[%r{/([^/\?]+)(\?|$)}, 1] || ENV['MONGO_DATABASE']
+
+    if db_name.nil? || db_name.empty?
+       raise "Could not determine database name. Please include it in MONGODB_URI or set MONGO_DATABASE environment variable."
+    end
+
     client = Mongo::Client.new(mongo_uri, :database => db_name, :user => db_username, :password => db_password)
     db = client.database
 
