@@ -37,36 +37,55 @@ class Web < Sinatra::Base
     set :mongo_db, db
     set :poetry_coll, db.collection("poetry")
 
-    # Auto-populate database if empty
-    if db.collection("poetry").count_documents == 0
-      puts "Database is empty. Seeding data..."
-      begin
-        # Check for full dataset first, then fallback to test data
-        real_data = File.join(File.dirname(__FILE__), '../tools/poetry.json')
-        test_data = File.join(File.dirname(__FILE__), '../tools/test.json')
+    # Database Maintenance and Auto-Seeding
+    begin
+      real_data = File.join(File.dirname(__FILE__), '../tools/poetry.json')
+      test_data = File.join(File.dirname(__FILE__), '../tools/test.json')
 
-        seed_file = File.exist?(real_data) ? real_data : test_data
+      should_seed = false
+      seed_file = nil
 
-        if File.exist?(seed_file)
-          puts "Loading seed data from #{seed_file}..."
-          data = JSON.parse(File.read(seed_file))
-          if data['poem']
-            # Batch insert to avoid memory/timeout issues if large
-            poems = data['poem']
-            batch_size = 1000
-            poems.each_slice(batch_size) do |batch|
-              db.collection("poetry").insert_many(batch)
-            end
-            puts "Successfully inserted #{poems.count} poems."
-          end
-        else
-          puts "No seed file found (checked #{real_data} and #{test_data})"
+      if File.exist?(real_data)
+        # We have real data. Check if we need to upgrade from test data.
+        # Test if "William Shakespeare" is missing (he is in real data, not in test data)
+        shakespeare_count = db.collection("poetry").find(author: "William Shakespeare").limit(1).count
+
+        if shakespeare_count == 0
+          puts "Detected missing Real Data (Shakespeare not found). Initiating database reset and upgrade..."
+          db.collection("poetry").delete_many({}) # Wipe existing (test) data
+          should_seed = true
+          seed_file = real_data
         end
-      rescue => e
-        puts "Error seeding database: #{e.message}"
+      elsif db.collection("poetry").count_documents == 0
+        # No real data file, but DB is empty. Seed with whatever we have (test data).
+        should_seed = true
+        seed_file = File.exist?(test_data) ? test_data : nil
+        puts "Database is empty. Seeding with available data..."
+      else
+        puts "Database already contains data."
       end
-    else
-      puts "Database already contains data."
+
+      if should_seed && seed_file
+        puts "Loading seed data from #{seed_file}..."
+        data = JSON.parse(File.read(seed_file))
+        if data['poem']
+          # Batch insert to avoid memory/timeout issues if large
+          poems = data['poem']
+          batch_size = 1000
+          poems.each_slice(batch_size) do |batch|
+            db.collection("poetry").insert_many(batch)
+          end
+          puts "Successfully inserted #{poems.count} poems."
+        else
+          puts "Invalid seed file format (missing 'poem' key)."
+        end
+      elsif should_seed
+        puts "No seed file found (checked #{real_data} and #{test_data})"
+      end
+
+    rescue => e
+      puts "Error during database maintenance: #{e.message}"
+      puts e.backtrace.join("\n")
     end
   end
 
