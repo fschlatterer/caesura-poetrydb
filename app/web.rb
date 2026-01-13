@@ -41,15 +41,26 @@ class Web < Sinatra::Base
     if db.collection("poetry").count_documents == 0
       puts "Database is empty. Seeding data..."
       begin
-        seed_file = File.join(File.dirname(__FILE__), '../tools/test.json')
+        # Check for full dataset first, then fallback to test data
+        real_data = File.join(File.dirname(__FILE__), '../tools/poetry.json')
+        test_data = File.join(File.dirname(__FILE__), '../tools/test.json')
+
+        seed_file = File.exist?(real_data) ? real_data : test_data
+
         if File.exist?(seed_file)
+          puts "Loading seed data from #{seed_file}..."
           data = JSON.parse(File.read(seed_file))
           if data['poem']
-            db.collection("poetry").insert_many(data['poem'])
-            puts "Successfully inserted #{data['poem'].count} poems."
+            # Batch insert to avoid memory/timeout issues if large
+            poems = data['poem']
+            batch_size = 1000
+            poems.each_slice(batch_size) do |batch|
+              db.collection("poetry").insert_many(batch)
+            end
+            puts "Successfully inserted #{poems.count} poems."
           end
         else
-          puts "Seed file not found at #{seed_file}"
+          puts "No seed file found (checked #{real_data} and #{test_data})"
         end
       rescue => e
         puts "Error seeding database: #{e.message}"
