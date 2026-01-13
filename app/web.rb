@@ -15,17 +15,19 @@ class Web < Sinatra::Base
       raise "MongoDB connection string not found. Please set MONGODB_URI (or MONGO_URL, MONGOLAB_URI) environment variable. See logs for available keys."
     end
 
-    db_username = ENV['MONGODB_USER']
-    db_password = ENV['MONGODB_PASS']
+    # Prepare options for Mongo Client
+    options = {}
+    options[:user] = ENV['MONGODB_USER'] if ENV['MONGODB_USER']
+    options[:password] = ENV['MONGODB_PASS'] if ENV['MONGODB_PASS']
 
-    # Try to extract database name from URI, or fall back to explicit env var
-    db_name = mongo_uri[%r{/([^/\?]+)(\?|$)}, 1] || ENV['MONGO_DATABASE']
+    # Initialize client (let driver parse the URI for database name initially)
+    client = Mongo::Client.new(mongo_uri, options)
 
-    if db_name.nil? || db_name.empty?
-       raise "Could not determine database name. Please include it in MONGODB_URI or set MONGO_DATABASE environment variable."
+    # If MONGO_DATABASE is explicitly set, use it
+    if ENV['MONGO_DATABASE']
+      client = client.use(ENV['MONGO_DATABASE'])
     end
 
-    client = Mongo::Client.new(mongo_uri, :database => db_name, :user => db_username, :password => db_password)
     db = client.database
 
     set :root, File.dirname(__FILE__)
