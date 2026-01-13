@@ -10,7 +10,9 @@ class Web < Sinatra::Base
     mongo_uri = ENV['MONGODB_URI'] || ENV['MONGO_URI'] || ENV['MONGO_URL'] || ENV['MONGOLAB_URI'] || ENV['MONGOHQ_URL']
 
     if mongo_uri.nil? || mongo_uri.empty?
-      raise "MongoDB connection string not found. Please set MONGODB_URI (or MONGO_URL, MONGOLAB_URI) environment variable."
+      puts "FATAL: MongoDB connection string not found."
+      puts "Available Environment Variables: #{ENV.keys.sort.join(', ')}"
+      raise "MongoDB connection string not found. Please set MONGODB_URI (or MONGO_URL, MONGOLAB_URI) environment variable. See logs for available keys."
     end
 
     db_username = ENV['MONGODB_USER']
