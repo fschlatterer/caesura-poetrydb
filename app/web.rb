@@ -36,6 +36,27 @@ class Web < Sinatra::Base
     set :mongo_client, client
     set :mongo_db, db
     set :poetry_coll, db.collection("poetry")
+
+    # Auto-populate database if empty
+    if db.collection("poetry").count_documents == 0
+      puts "Database is empty. Seeding data..."
+      begin
+        seed_file = File.join(File.dirname(__FILE__), '../tools/test.json')
+        if File.exist?(seed_file)
+          data = JSON.parse(File.read(seed_file))
+          if data['poem']
+            db.collection("poetry").insert_many(data['poem'])
+            puts "Successfully inserted #{data['poem'].count} poems."
+          end
+        else
+          puts "Seed file not found at #{seed_file}"
+        end
+      rescue => e
+        puts "Error seeding database: #{e.message}"
+      end
+    else
+      puts "Database already contains data."
+    end
   end
 
   def json_status(code, reason)
