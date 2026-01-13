@@ -9,8 +9,16 @@ mongo_uri = ENV['MONGODB_URI']
 db_username = ENV['MONGODB_USER']
 db_password = ENV['MONGODB_PASS']
 
-db_name = mongo_uri[%r{/([^/\?]+)(\?|$)}, 1]
-client = Mongo::Client.new(mongo_uri, :database => db_name, :user => db_username, :password => db_password)
+# Use robust connection logic matching app/web.rb
+options = {}
+options[:user] = db_username if db_username
+options[:password] = db_password if db_password
+
+client = Mongo::Client.new(mongo_uri, options)
+if ENV['MONGO_DATABASE']
+  client = client.use(ENV['MONGO_DATABASE'])
+end
+
 db = client.database
 
 coll = db.collection("poetry")
